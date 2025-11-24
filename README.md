@@ -255,21 +255,11 @@ POST /api/sensors/data
 
 ---
 
-## 🖼 Ảnh giao diện (khuyến nghị)
-
-Bạn có thể tạo thư mục:
-
-```
-/images/dashboard.png
-/images/panel.png
-/images/history.png
-```
-
-Rồi thêm:
+## 🖼 Ảnh giao diện 
 
 ```markdown
 ### 📊 Dashboard
-![Dashboard](images/dashboard.png)
+![Dashboard](images/dash.png)
 
 ### 🛠 Panel
 ![Panel](images/panel.png)
