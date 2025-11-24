@@ -163,7 +163,7 @@ ESP32 / Simulator → API Server → SQL Server
 
 ### 1️⃣ Clone dự án
 ```sh
-git clone https://github.com/<yourname>/SmartHome-IoT.git
+git clone https://github.com/kain047/SmartHome-IOT-N3-22TD111.git
 cd SmartHome-IoT
 ```
 
@@ -290,6 +290,28 @@ Rồi thêm:
 
 ---
 
+## 📑 Tài liệu thiết kế hệ thống (System Design)
+
+### 1️⃣ Kiến trúc tổng thể
+
+Hệ thống được thiết kế theo mô hình 3 lớp:
+
+```text
+[Thiết bị IoT / Simulator]
+       |
+       |  HTTP (REST API, JSON)
+       v
+[Node.js + Express Backend]
+       |
+       |  T-SQL (mssql driver)
+       v
+[SQL Server Database]
+       ^
+       |
+[Web Client (EJS + CSS + JS)]
+
+---
+
 ## 👨‍💻 Tác giả
 
 **Đặng Nguyễn Trung Nguyên**  
@@ -300,3 +322,4 @@ Lac Hong University – Smart Home Research
 
 ## 📄 License  
 MIT License – sử dụng tự do cho học tập & nghiên cứu.
+
