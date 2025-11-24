@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lịch sử dữ liệu cảm biến</title>
+
+  <!-- CSS chính -->
+  <link rel="stylesheet" href="/css/main.css" />
+
+  <!-- Aurora nền -->
+  <script type="module" src="/js/aurora.js" defer></script>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <!-- Nền Aurora -->
+  <div id="aurora-bg" class="aurora-bg"></div>
+
+  <!-- Nút về dashboard -->
+  <a href="/dashboard" class="btn-home">🏠 Trang chủ</a>
+
+  <main class="main-content">
+    <div class="glass history-box">
+
+      <!-- Tiêu đề -->
+      <h2 class="history-title">
+        <span class="history-icon"></span>
+        LỊCH SỬ DỮ LIỆU CẢM BIẾN
+      </h2>
+
+      <!-- Dòng filter -->
+      <div class="history-filter-row">
+        <div class="history-filter-item">
+          <label for="fromDate">Từ ngày</label>
+          <input type="date" id="fromDate" />
+        </div>
+
+        <div class="history-filter-item">
+          <label for="toDate">Đến ngày</label>
+          <input type="date" id="toDate" />
+        </div>
+
+        <div class="history-filter-item">
+          <label for="typeFilter">Loại dữ liệu</label>
+          <select id="typeFilter">
+            <option value="">Tất cả loại</option>
+            <option value="Temperature">Temperature</option>
+            <option value="Humidity">Humidity</option>
+            <option value="PM2.5">PM2.5</option>
+          </select>
+        </div>
+
+        <div class="history-filter-item">
+          <label for="deviceFilter">Thiết bị</label>
+          <input type="text" id="deviceFilter" placeholder="Tên thiết bị" />
+        </div>
+
+        <div class="history-filter-actions">
+          <button id="filterBtn" class="btn btn-primary">Lọc</button>
+          <button id="exportBtn" class="btn btn-outline">⬇ Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Bảng lịch sử -->
+      <div class="history-table-wrapper">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Thiết bị</th>
+              <th>Loại</th>
+              <th>Giá trị</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr>
+              <td colspan="4" class="history-loading">Đang tải...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Phân trang -->
+      <div class="history-pagination">
+        <div class="history-page-label">
+          Trang <span id="pageInfo">1</span>
+        </div>
+
+        <div class="history-page-buttons">
+          <button id="prevPage" class="btn btn-outline history-page-btn">« Trước</button>
+          <button id="nextPage" class="btn btn-outline history-page-btn">Sau »</button>
+        </div>
+
+        <div class="history-page-size">
+          <select id="pageSize">
+            <option value="10">10 dòng</option>
+            <option value="20" selected>20 dòng</option>
+            <option value="50">50 dòng</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentPage = 1;
+
+    async function loadHistory() {
+      const pageSize = document.getElementById('pageSize').value;
+      const type = document.getElementById('typeFilter').value;
+      const device = document.getElementById('deviceFilter').value.trim();
+      const from = document.getElementById('fromDate').value;
+      const to = document.getElementById('toDate').value;
+
+      const params = new URLSearchParams({
+        page: currentPage,
+        pageSize,
+        type,
+        device,
+        from,
+        to
+      });
+
+      // Đường dẫn tương đối → /api/sensors/api/history
+      const res = await fetch('api/history?' + params.toString());
+      const data = await res.json().catch(() => null);
+
+      const body = document.getElementById('historyBody');
+      body.innerHTML = '';
+
+      if (!data || !data.rows || !data.rows.length) {
+        body.innerHTML = `<tr><td colspan="4" class="history-empty">Không có dữ liệu</td></tr>`;
+        document.getElementById('pageInfo').innerText = `1/1`;
+        document.getElementById('prevPage').disabled = true;
+        document.getElementById('nextPage').disabled = true;
+        return;
+      }
+
+      const { rows, total, page, pageSize: ps } = data;
+
+      rows.forEach(r => {
+        body.innerHTML += `
+          <tr>
+            <td>${new Date(r.Timestamp).toLocaleString("vi-VN")}</td>
+            <td>${r.Device}</td>
+            <td>${r.Type}</td>
+            <td>${r.Value} ${r.Unit || ''}</td>
+          </tr>
+        `;
+      });
+
+      const totalPages = Math.max(1, Math.ceil(total / ps));
+      document.getElementById('pageInfo').innerText = `${page}/${totalPages}`;
+      document.getElementById('prevPage').disabled = page <= 1;
+      document.getElementById('nextPage').disabled = page >= totalPages;
+    }
+
+    // Sự kiện lọc
+    document.getElementById('filterBtn').addEventListener('click', () => {
+      currentPage = 1;
+      loadHistory();
+    });
+
+    // Phân trang
+    document.getElementById('prevPage').addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        loadHistory();
+      }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+      currentPage++;
+      loadHistory();
+    });
+
+    document.getElementById('pageSize').addEventListener('change', () => {
+      currentPage = 1;
+      loadHistory();
+    });
+
+    // Export CSV (theo filter hiện tại)
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const type = document.getElementById('typeFilter').value;
+      const device = document.getElementById('deviceFilter').value.trim();
+      const from = document.getElementById('fromDate').value;
+      const to = document.getElementById('toDate').value;
+
+      const params = new URLSearchParams({ type, device, from, to });
+      window.location.href = 'api/history/export?' + params.toString();
+    });
+
+    // Load lần đầu
+    loadHistory();
+  </script>
+</body>
+</html>

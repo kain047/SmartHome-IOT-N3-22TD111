@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel IoT - Smart Home</title>
+
+  <!-- CSS chung -->
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/aurora.js"></script>
+
+  <!-- Chart.js cho biểu đồ UV -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- ================= GAS ALERT CSS (riêng cho Panel) ================= -->
+  <style>
+    /* Popup cảnh báo GAS */
+    #gasAlertPanel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 14px 20px;
+      background: rgba(255, 40, 40, 0.95);
+      color: white;
+      font-weight: 700;
+      border-radius: 12px;
+      display: none;
+      z-index: 9999;
+      box-shadow: 0 0 20px rgba(255, 80, 80, 0.8);
+      animation: popupFade 0.3s ease-out;
+    }
+
+    @keyframes popupFade {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* CardBox GAS cảnh báo */
+    .gas-danger-mini {
+      background: rgba(255, 60, 60, 0.25) !important;
+      border: 1px solid rgba(255, 80, 80, 0.6) !important;
+      box-shadow: 0 0 20px rgba(255, 0, 0, 0.45) !important;
+      animation: pulseGas 0.7s infinite alternate ease-in-out;
+    }
+
+    @keyframes pulseGas {
+      0%   { transform: scale(1); }
+      100% { transform: scale(1.03); }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Aurora Background -->
+  <div id="aurora-bg" class="aurora-bg"></div>
+
+  <!-- Nút Home -->
+  <a href="/" class="btn-home">🏠 Trang chủ</a>
+
+  <!-- 🔥 Popup cảnh báo GAS -->
+  <div id="gasAlertPanel">⚠ Cảnh báo: Nồng độ Gas vượt mức an toàn!</div>
+
+  <div class="glass panel-wrapper">
+    <h2 class="panel-title">🫧 PANEL ĐIỀU KHIỂN IOT</h2>
+
+    <!-- ==== HÀNG TRÊN ==== -->
+    <div class="panel-top">
+
+      <!-- MINI MONITOR -->
+      <div class="glass panel-box" id="quickBox" style="cursor:pointer;" onclick="location.href='/dashboard'">
+        <h3>📊 Giám sát nhanh</h3>
+
+        <div class="mini-monitor-cards">
+          <div class="cardBox">
+            <h4>🌡 Nhiệt độ</h4>
+            <p id="tempMini">--</p>
+            <span>°C</span>
+          </div>
+
+          <div class="cardBox">
+            <h4>💧 Độ ẩm</h4>
+            <p id="humMini">--</p>
+            <span>%</span>
+          </div>
+
+          <div class="cardBox">
+            <h4>🌫 PM2.5</h4>
+            <p id="dustMini">--</p>
+            <span>µg/m³</span>
+          </div>
+
+          <!-- ⭐ Ô GAS -->
+          <div class="cardBox" id="gasCardMini">
+            <h4>🧯 Gas</h4>
+            <p id="gasMini">--</p>
+            <span>ppm</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLOCK + STATUS -->
+      <div class="glass panel-box">
+        <div class="digital-clock">
+          <div id="clockTime" class="clock-time">00:00:00</div>
+          <div id="clockDate" class="clock-date">DD/MM/YYYY</div>
+        </div>
+
+        <div class="system-status">
+          <div>
+            <div>Trạng thái hệ thống</div>
+            <div id="statusDetail">Đang kiểm tra kết nối...</div>
+          </div>
+          <div id="statusPill" class="status-pill status-offline">OFFLINE</div>
+        </div>
+      </div>
+
+      <!-- ⭐ Ô HIỂN THỊ ĐIỆN NĂNG -->
+      <div class="glass panel-box">
+        <h3>⚡ Điện năng tiêu thụ</h3>
+
+        <div style="margin-top:15px;text-align:center;">
+          <p id="wattNow" style="font-size:32px;font-weight:700;color:#7cff67;">0.0</p>
+          <span style="opacity:0.9;">Watt hiện tại</span>
+        </div>
+
+        <div style="margin-top:6px;text-align:center;font-size:13px;opacity:0.9;">
+          <p>Watt dự kiến: <b id="wattTarget">0.0</b> W</p>
+        </div>
+
+        <div style="margin-top:10px;text-align:center;font-size:14px;opacity:0.85;">
+          <p>Tổng hôm nay: <b id="wattToday">0.00</b> Wh</p>
+        </div>
+      </div>
+
+      <!-- ⭐ Ô CẢNH BÁO THỜI TIẾT + UV -->
+      <div class="glass panel-box" id="weatherBox">
+        <h3>🌦 Cảnh báo thời tiết</h3>
+
+        <!-- Thời tiết hiện tại -->
+        <div style="text-align:center;margin-top:10px;">
+          <p id="weatherIcon" style="font-size:38px;">⛅</p>
+          <p id="weatherTemp" style="font-size:26px;font-weight:600;">-- °C</p>
+          <p id="weatherStatus" style="opacity:0.9;">Đang tải...</p>
+        </div>
+
+        <!-- UV hiện tại -->
+        <div style="margin-top:8px;text-align:center;font-size:14px;">
+          <span>🌞 UV hiện tại: <b id="uvNow">--</b></span>
+          <span id="uvLevelText" style="margin-left:8px;opacity:0.9;"></span>
+        </div>
+
+        <!-- Cảnh báo thông minh -->
+        <div id="weatherAlert" style="margin-top:8px;font-weight:600;color:#ff8080;text-align:center;">
+        </div>
+
+        <!-- Biểu đồ UV -->
+        <div style="margin-top:12px;">
+          <canvas id="uvChart" style="width:100%;max-height:130px;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==== HÀNG DƯỚI ==== -->
+    <div class="iot-layout">
+
+      <!-- BOX 1: Thiết bị đo lường -->
+      <div class="glass iot-box">
+        <h3 class="iot-title">📡 Thiết bị đo lường</h3>
+        <div style="height: 10px;"></div>
+        <div id="sensorDevices"></div>
+      </div>
+
+      <!-- BOX 2: Thiết bị IoT điều khiển -->
+      <div class="glass iot-box">
+        <h3 class="iot-title">🛠️ Thiết bị IoT điều khiển</h3>
+        <div style="height: 10px;"></div>
+        <div id="iotControl" class="iot-control-grid"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /* ================= CLOCK ================= */
+    function updateDigitalClock() {
+      const t = new Date();
+      document.getElementById("clockTime").textContent =
+        `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
+      document.getElementById("clockDate").textContent =
+        `${String(t.getDate()).padStart(2, '0')}/${String(t.getMonth() + 1).padStart(2, '0')}/${t.getFullYear()}`;
+    }
+    updateDigitalClock();
+    setInterval(updateDigitalClock, 1000);
+
+    /* ================= ANIMATE MINI NUMBERS ================= */
+    function animateValue(element, newValue, duration = 500) {
+      const target = Number(newValue);
+      if (isNaN(target)) {
+        element.textContent = newValue;
+        return;
+      }
+
+      let start = Number(element.textContent);
+      if (isNaN(start)) start = target;
+
+      const range = target - start;
+      const startTime = performance.now();
+
+      function frame(time) {
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const value = start + range * progress;
+        element.textContent = value.toFixed(2);
+        if (progress < 1) requestAnimationFrame(frame);
+      }
+
+      element.classList.add("flash-update");
+      setTimeout(() => element.classList.remove("flash-update"), duration);
+
+      requestAnimationFrame(frame);
+    }
+
+    /* ================= ANIMATE WATT (tăng chậm, mượt) ================= */
+    function animateWatt(oldValue, newValue, duration = 4000) {
+      const wattEl = document.getElementById("wattNow");
+      const startTime = performance.now();
+
+      function frame(now) {
+        const t = Math.min((now - startTime) / duration, 1);
+        // smoothstep easing
+        const eased = t * t * (3 - 2 * t);
+        const value = oldValue + (newValue - oldValue) * eased;
+        wattEl.textContent = value.toFixed(1);
+        if (t < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    /* ================= NĂNG LƯỢNG WH HÔM NAY (TÍNH FRONT-END) ================= */
+    let energyWhToday = 0;
+    let lastEnergyUpdate = Date.now();
+
+    function updateEnergyToday() {
+      const now = Date.now();
+      const dtHours = (now - lastEnergyUpdate) / 3600000; // ms → giờ
+      lastEnergyUpdate = now;
+
+      const watt = Number(document.getElementById("wattNow").textContent);
+      if (!isNaN(watt)) {
+        energyWhToday += watt * dtHours;
+        document.getElementById("wattToday").textContent = energyWhToday.toFixed(2);
+      }
+    }
+
+    setInterval(updateEnergyToday, 5000); // 5s cập nhật 1 lần
+
+    /* ================= CHECK MEASURE DEVICE ================= */
+    async function checkMeasureDevice() {
+      const res = await fetch("/api/sensors/user-devices");
+      const list = await res.json();
+      return list.some(x => x.DeviceType == 1);
+    }
+
+    /* ================= GIÁM SÁT NHANH (TEMP/HUM/DUST/GAS) ================= */
+    async function updateMini() {
+      try {
+        const hasMeasure = await checkMeasureDevice();
+        if (!hasMeasure) return;
+
+        const res = await fetch("/api/sensors/data");
+        const rows = await res.json();
+
+        const getLatest = (arr, type) => arr.find(x => x.Type === type);
+
+        const t = getLatest(rows, "Temperature");
+        const h = getLatest(rows, "Humidity");
+        const d = getLatest(rows, "PM2.5");
+        const g = getLatest(rows, "Gas");
+
+        if (t) animateValue(document.getElementById("tempMini"), t.Value);
+        if (h) animateValue(document.getElementById("humMini"), h.Value);
+        if (d) animateValue(document.getElementById("dustMini"), d.Value);
+
+        /* GAS ALERT */
+        const gasMini = document.getElementById("gasMini");
+        const gasCard = document.getElementById("gasCardMini");
+        const popup = document.getElementById("gasAlertPanel");
+
+        if (g) {
+          animateValue(gasMini, g.Value);
+
+          if (g.Value > 300) {
+            gasCard.classList.add("gas-danger-mini");
+            popup.style.display = "block";
+
+            clearTimeout(window.gasAlertTimer);
+            window.gasAlertTimer = setTimeout(() => {
+              popup.style.display = "none";
+            }, 3000);
+          } else {
+            gasCard.classList.remove("gas-danger-mini");
+            popup.style.display = "none";
+          }
+        } else {
+          gasMini.textContent = "--";
+          gasCard.classList.remove("gas-danger-mini");
+          popup.style.display = "none";
+        }
+
+        document.getElementById("statusPill").textContent = "ONLINE";
+        document.getElementById("statusPill").className = "status-pill status-online";
+        document.getElementById("statusDetail").textContent = "Kết nối OK";
+      } catch (err) {
+        document.getElementById("statusPill").textContent = "OFFLINE";
+        document.getElementById("statusPill").className = "status-pill status-offline";
+        document.getElementById("statusDetail").textContent = "Không đọc được dữ liệu";
+      }
+    }
+
+    updateMini();
+    setInterval(updateMini, 3000);
+
+    /* ================= WEATHER + UV CHART ====================== */
+    let uvChart = null;
+
+    function renderUvChart(series) {
+      const canvas = document.getElementById("uvChart");
+      if (!canvas) return;
+
+      if (!series || !series.length) {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+
+      const labels = series.map(p => p.time.slice(11, 16)); // HH:MM
+      const values = series.map(p => p.uv);
+
+      const ctx = canvas.getContext("2d");
+
+      if (uvChart) {
+        uvChart.data.labels = labels;
+        uvChart.data.datasets[0].data = values;
+        uvChart.update();
+        return;
+      }
+
+      uvChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "UV (giờ kế tiếp)",
+            data: values,
+            borderWidth: 2,
+            tension: 0.3,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              labels: { color: "#fff", font: { size: 11 } }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: "#ccc", maxRotation: 0 },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { color: "#ccc" },
+              grid: { color: "rgba(255,255,255,0.1)" }
+            }
+          }
+        }
+      });
+    }
+
+    async function updateWeather() {
+      const iconEl = document.getElementById("weatherIcon");
+      const tempEl = document.getElementById("weatherTemp");
+      const statusEl = document.getElementById("weatherStatus");
+      const alertEl = document.getElementById("weatherAlert");
+      const uvNowEl = document.getElementById("uvNow");
+      const uvLevelTextEl = document.getElementById("uvLevelText");
+
+      try {
+        const res = await fetch("/api/weather/today");
+        const data = await res.json();
+
+        tempEl.textContent = `${data.temp}°C`;
+        statusEl.textContent = data.status;
+        iconEl.textContent = data.icon || "⛅";
+        alertEl.textContent = data.alert || "";
+
+        // UV hiện tại
+        const uv = typeof data.uv === "number" ? data.uv : 0;
+        uvNowEl.textContent = (data.uv != null) ? uv.toFixed(1) : "--";
+
+        let uvLevel = "";
+        if (uv >= 11) uvLevel = "☠️ Cực kỳ nguy hiểm";
+        else if (uv >= 8) uvLevel = "🔥 Rất cao";
+        else if (uv >= 6) uvLevel = "🌤 Cao";
+        else if (uv >= 3) uvLevel = "🙂 Trung bình";
+        else uvLevel = "✅ Thấp";
+
+        uvLevelTextEl.textContent = uvLevel;
+
+        // Biểu đồ UV
+        renderUvChart(data.uvSeries || []);
+      } catch (e) {
+        statusEl.textContent = "Không tải được dữ liệu thời tiết";
+        alertEl.textContent = "";
+        uvNowEl.textContent = "--";
+        uvLevelTextEl.textContent = "";
+        renderUvChart([]);
+      }
+    }
+
+    updateWeather();
+    setInterval(updateWeather, 300000); // 5 phút
+
+    /* ================= DEVICE LOADERS ================= */
+
+    let allDevices = [];          // danh sách thiết bị điều khiển (fan, light,...)
+    const deviceStates = {};      // trạng thái ON/OFF từng DeviceID
+
+    async function loadSensorDevices() {
+      const res = await fetch("/api/sensors/user-devices");
+      const list = await res.json();
+
+      const wrap = document.getElementById("sensorDevices");
+      wrap.innerHTML = "";
+
+      list.filter(x => x.DeviceType == 1).forEach(dev => {
+        wrap.innerHTML += `
+          <div class="device-card">
+            <h4>🌡💧 ${dev.Name}</h4>
+            <p>Thiết bị đo lường</p>
+          </div>`;
+      });
+    }
+
+    async function loadControl() {
+      const res = await fetch("/api/sensors/user-devices");
+      const list = await res.json();
+
+      allDevices = list.filter(x => x.DeviceType != 1);
+
+      const wrap = document.getElementById("iotControl");
+      wrap.innerHTML = "";
+
+      const icons = {
+        1: "🌡💧",
+        2: "🌀",
+        3: "💡"
+      };
+
+      allDevices.forEach(dev => {
+        // mặc định tất cả tắt
+        deviceStates[dev.DeviceID] = false;
+
+        wrap.innerHTML += `
+          <div class="control-card">
+            <div class="control-header">
+              <div class="control-header-left">
+                <span class="device-icon">${icons[dev.DeviceType] || "🔌"}</span>
+                <span class="device-name">${dev.Name}</span>
+              </div>
+              <span id="dot-${dev.DeviceID}" class="dot-status"></span>
+            </div>
+            <div class="control-actions">
+              <button id="btn-on-${dev.DeviceID}" class="device-btn device-neutral"
+                      onclick="toggleDevice(${dev.DeviceID},1)">Bật</button>
+              <button id="btn-off-${dev.DeviceID}" class="device-btn device-neutral"
+                      onclick="toggleDevice(${dev.DeviceID},0)">Tắt</button>
+            </div>
+          </div>`;
+      });
+    }
+
+    // Công suất điện của từng loại thiết bị (demo)
+    const DEVICE_WATT = {
+      2: 50, // quạt
+      3: 20  // đèn
+    };
+
+    // Gửi lệnh điều khiển tới server
+    async function sendCmd(id, state) {
+      try {
+        await fetch("/api/sensors/control-device", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceId: id, state })
+        });
+      } catch (err) {
+        console.error("Lỗi gửi lệnh điều khiển:", err);
+      }
+    }
+
+    // Bật / Tắt thiết bị + mô phỏng điện năng
+    async function toggleDevice(id, state) {
+      await sendCmd(id, state);
+
+      const btnOn  = document.getElementById(`btn-on-${id}`);
+      const btnOff = document.getElementById(`btn-off-${id}`);
+      const dot    = document.getElementById(`dot-${id}`);
+      const wattEl = document.getElementById("wattNow");
+      const wattTargetEl = document.getElementById("wattTarget");
+
+      let currentWatt = Number(wattEl.textContent);
+      if (isNaN(currentWatt)) currentWatt = 0;
+
+      const dev = allDevices.find(d => d.DeviceID === id);
+      if (!dev) return;
+
+      // cập nhật trạng thái
+      deviceStates[id] = (state === 1);
+
+      // tính lại tổng Watt của TẤT CẢ thiết bị đang bật
+      let targetWatt = 0;
+      let activeCount = 0;
+      for (const d of allDevices) {
+        if (deviceStates[d.DeviceID]) {
+          activeCount++;
+          targetWatt += DEVICE_WATT[d.DeviceType] || 0;
+        }
+      }
+
+      // clamp không âm
+      if (targetWatt < 0) targetWatt = 0;
+
+      // thời gian animation: thiết bị đầu tiên rất chậm, càng nhiều thiết bị càng nhanh hơn chút
+      const BASE_DURATION = 4500;          // ms
+      const SPEEDUP_PER_DEVICE = 600;      // ms
+      let duration = BASE_DURATION - (Math.max(activeCount, 1) - 1) * SPEEDUP_PER_DEVICE;
+      if (duration < 1500) duration = 1500; // không quá nhanh
+
+      // hiệu ứng tăng/giảm công suất
+      animateWatt(currentWatt, targetWatt, duration);
+
+      // Watt dự kiến (hiển thị ngay)
+      wattTargetEl.textContent = targetWatt.toFixed(1);
+
+      // Cập nhật UI nút + dot
+      if (state === 1) {
+        btnOn.className  = "device-btn device-on";
+        btnOff.className = "device-btn device-neutral";
+        dot.className    = "dot-status dot-on";
+      } else {
+        btnOn.className  = "device-btn device-neutral";
+        btnOff.className = "device-btn device-off";
+        dot.className    = "dot-status dot-off";
+      }
+    }
+
+    // Khởi chạy
+    loadSensorDevices();
+    loadControl();
+    checkMeasureDevice();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - Smart Home</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/aurora.js" defer></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+  <!-- ===================== GAS ALERT CSS ===================== -->
+  <style>
+    /* Popup cảnh báo */
+    #gasAlertPopup {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(255, 40, 40, 0.9);
+      color: #fff;
+      padding: 15px 22px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(255, 50, 50, 0.8);
+      font-weight: 600;
+      z-index: 9999;
+      font-size: 15px;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* CardBox Gas Danger */
+    .gas-danger {
+      background: rgba(255, 50, 50, 0.2) !important;
+      border: 1px solid rgba(255, 80, 80, 0.6) !important;
+      box-shadow: 0 0 20px rgba(255, 0, 0, 0.5) !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="aurora-bg" class="aurora-bg"></div>
+
+  <!-- 🔥 Popup cảnh báo GAS -->
+  <div id="gasAlertPopup">⚠ Cảnh báo: Nồng độ Gas vượt mức an toàn!</div>
+
+  <a href="/" class="btn-home">🏠 Về trang chủ</a>
+  <a href="/api/sensors/history" class="btn-history">📜 Lịch sử</a>
+
+
+  <!-- ===================== DASHBOARD WRAPPER ===================== -->
+  <div class="glass" style="max-width:1100px;margin:60px auto;padding:20px 40px;">
+
+    <h2 style="text-align:center; margin-bottom:10px;
+               background: linear-gradient(90deg,#6b5bff,#7cff67);
+               -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+               font-size:28px;">
+      📊 GIÁM SÁT NHIỆT ĐỘ – ĐỘ ẨM – ĐỘ BỤI – GAS (REALTIME)
+    </h2>
+
+    <div style="text-align:center; margin-bottom:20px;">
+      <a href="/panel" 
+         style="
+            display:inline-block;
+            padding:10px 20px;
+            background:linear-gradient(90deg,#7cff67,#3aefff);
+            color:#000;
+            font-weight:600;
+            border-radius:25px;
+            text-decoration:none;
+            box-shadow:0 0 20px rgba(124,255,103,0.5);
+            transition:0.25s;
+         "
+         onmouseover="this.style.transform='scale(1.05)'"
+         onmouseout="this.style.transform='scale(1)'"
+      >
+        ⬅ Quay về Panel
+      </a>
+    </div>
+
+    <!-- TIME -->
+    <p id="current-time"
+       style="text-align:center;color:#00eaff;font-weight:600;margin-bottom:25px;">
+      ⏰ Thời gian hiện tại: --
+    </p>
+
+    <!-- SUMMARY CARDS -->
+    <div style="display:flex;gap:20px;justify-content:center;margin-bottom:25px;flex-wrap:wrap;">
+      <div class="cardBox">
+        <h3>🌡 Nhiệt độ</h3>
+        <p id="tempNow">--</p>
+        <span class="unit">°C</span>
+      </div>
+
+      <div class="cardBox">
+        <h3>💧 Độ ẩm</h3>
+        <p id="humNow">--</p>
+        <span class="unit">%</span>
+      </div>
+
+      <div class="cardBox">
+        <h3>🌫 Độ bụi PM2.5</h3>
+        <p id="dustNow">--</p>
+        <span class="unit">µg/m³</span>
+      </div>
+
+      <!-- ⭐ Ô mới: GAS -->
+      <div class="cardBox" id="gasCard">
+        <h3>🧯 Gas</h3>
+        <p id="gasNow">--</p>
+        <span class="unit">ppm</span>
+      </div>
+    </div>
+
+    <!-- MAIN CHART -->
+    <div style="height:420px;">
+      <canvas id="mainChart"></canvas>
+    </div>
+
+  </div>
+
+  <script>
+    /* ======================= CLOCK ======================= */
+    function updateClock() {
+      const t = new Date();
+      document.getElementById("current-time").textContent =
+        `⏰ Thời gian hiện tại: ${t.toLocaleTimeString("vi-VN")}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    /* ======================= MAIN CHART ======================= */
+    const ctx = document.getElementById('mainChart').getContext('2d');
+
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'Nhiệt độ (°C)',
+            borderColor: '#6b5bff',
+            pointBackgroundColor: '#6b5bff',
+            data: [],
+            borderWidth: 2,
+            tension: 0.3,
+            yAxisID: 'yTemp'
+          },
+          {
+            label: 'Độ ẩm (%)',
+            borderColor: '#7cff67',
+            pointBackgroundColor: '#7cff67',
+            data: [],
+            borderWidth: 2,
+            tension: 0.3,
+            yAxisID: 'yHum'
+          },
+          {
+            label: 'Độ bụi PM2.5 (µg/m³)',
+            borderColor: '#ff8a00',
+            pointBackgroundColor: '#ff8a00',
+            data: [],
+            borderWidth: 2,
+            tension: 0.3,
+            yAxisID: 'yDust'
+          },
+          {
+            label: 'Gas (ppm)',
+            borderColor: '#ff4444',
+            pointBackgroundColor: '#ff4444',
+            data: [],
+            borderWidth: 2,
+            tension: 0.3,
+            yAxisID: 'yGas'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        animation: false,
+        plugins: {
+          legend: { labels: { color: '#fff', font: { size: 14 }}} ,
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' }},
+            ticks: { display: false },
+            grid: { display: false }
+          },
+          yTemp: {
+            position: 'left',
+            min: 20, max: 45,
+            title: { display: true, text: "°C", color:'#6b5bff' },
+            ticks: { color:'#6b5bff' }
+          },
+          yHum: {
+            position: 'right',
+            min: 20, max: 100,
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "%", color:'#7cff67' },
+            ticks: { color:'#7cff67' }
+          },
+          yDust: {
+            position: 'right',
+            min: 0, max: 200,
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "µg/m³", color:'#ff8a00' },
+            ticks: { color:'#ff8a00' }
+          },
+          yGas: {
+            position: 'left',
+            min: 0,
+            max: 500,
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "ppm", color:'#ff4444' },
+            ticks: { color:'#ff4444' }
+          }
+        }
+      }
+    });
+
+    /* ======================= UPDATE DATA ======================= */
+    async function updateData() {
+      try {
+        const res = await fetch('/api/sensors/data');
+        const rows = await res.json();
+
+        const temp = rows.filter(x => x.Type === "Temperature").slice(0, 40).reverse();
+        const hum  = rows.filter(x => x.Type === "Humidity").slice(0, 40).reverse();
+        const dust = rows.filter(x => x.Type === "PM2.5").slice(0, 40).reverse();
+        const gas  = rows.filter(x => x.Type === "Gas").slice(0, 40).reverse();
+
+        if (temp.length) document.getElementById("tempNow").innerText = temp.at(-1).Value;
+        if (hum.length)  document.getElementById("humNow").innerText  = hum.at(-1).Value;
+        if (dust.length) document.getElementById("dustNow").innerText = dust.at(-1).Value;
+        if (gas.length)  document.getElementById("gasNow").innerText  = gas.at(-1).Value;
+
+        /* ================= GAS ALERT ================= */
+        const gasBox = document.getElementById("gasCard");
+        const gasAlert = document.getElementById("gasAlertPopup");
+
+        if (gas.length) {
+          const val = gas.at(-1).Value;
+          if (val > 300) {
+            gasBox.classList.add("gas-danger");
+            gasAlert.style.display = "block";
+
+            setTimeout(() => gasAlert.style.display = "none", 3000);
+          } else {
+            gasBox.classList.remove("gas-danger");
+            gasAlert.style.display = "none";
+          }
+        }
+
+        /* UPDATE CHART */
+        chart.data.datasets[0].data = temp.map(x => ({ x: new Date(x.Timestamp), y: x.Value }));
+        chart.data.datasets[1].data = hum.map(x => ({ x: new Date(x.Timestamp), y: x.Value }));
+        chart.data.datasets[2].data = dust.map(x => ({ x: new Date(x.Timestamp), y: x.Value }));
+        chart.data.datasets[3].data = gas.map(x => ({ x: new Date(x.Timestamp), y: x.Value }));
+
+        chart.update('none');
+      }
+      catch (e) { console.log("ERR:", e); }
+    }
+
+    updateData();
+    setInterval(updateData, 2000);
+  </script>
+
+</body>
+</html>

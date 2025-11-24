@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Quản lý người dùng</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/aurora.js"></script>
+</head>
+
+<body>
+  <div class="aurora-bg"></div>
+  <a href="/" class="btn-home">🏠 Trang chủ</a>
+
+  <main class="main-content">
+    <div class="glass history-box">
+      <h2 class="history-title">👤 Quản lý người dùng</h2>
+
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Họ tên</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Ngày tạo</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% users.forEach(u => { %>
+            <tr>
+              <td><%= u.UserID %></td>
+              <td><%= u.Username %></td>
+              <td><%= u.FullName %></td>
+              <td><%= u.Email %></td>
+              <td><%= u.Role %></td>
+              <td><%= new Date(u.CreatedDate).toLocaleString("vi-VN") %></td>
+              <td>
+                <button class="btn btn-danger btn-delete" data-id="<%= u.UserID %>">Xóa</button>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+<script>
+document.querySelectorAll(".btn-delete").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    if (!confirm("Xác nhận xóa user này?")) return;
+
+    const id = btn.dataset.id;
+    const res = await fetch(`/auth/admin/delete-user/${id}`, {
+      method: "DELETE"
+    });
+
+    if (res.ok) location.reload();
+    else alert("Không thể xóa user!");
+  });
+});
+</script>
+
+</body>
+</html>
